@@ -101,5 +101,5 @@ This project is inspired by the need to understand and mitigate the devastating 
 ---
 
 ## **Connect with Me**
-- LinkedIn: [Your LinkedIn Profile](https://www.linkedin.com/in/nikhil-racha/)
+- LinkedIn: [my LinkedIn](https://www.linkedin.com/in/nikhil-racha/)
 
