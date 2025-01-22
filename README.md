@@ -101,7 +101,5 @@ This project is inspired by the need to understand and mitigate the devastating 
 ---
 
 ## **Connect with Me**
-- LinkedIn: [Your LinkedIn Profile](https://www.linkedin.com/in/rnik23/)
-- GitHub: [LA Fires Repo](https://github.com/rnik23/LA_Fires_Data_Stream)
-
+- LinkedIn: [Your LinkedIn Profile](https://www.linkedin.com/in/nikhil-racha/)
 
