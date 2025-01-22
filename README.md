@@ -83,7 +83,7 @@ The goal is to build end-to-end data engineering and analytics skills while crea
    - Stream data to Kafka.
    - Process and visualize fire dynamics.
 
-4. Check out the Miro Board for the pipeline architecture [here](insert-link).
+4. Check out the Miro Board for the pipeline architecture [here](https://miro.com/welcomeonboard/ZVdFVUVrMzdWKzRGTFVIOFYyS0RwY0ZPMHdTVGV2Nkswa0hqRDZOMjVaQnBuTmp6MW13d0JrcHhZdHhZY1huVlRGcUd2dVdmd2kxYUFBSDRDem1jNGlxTnpGTmhDczNyYkZOQTJja2V1WkdUVjdwaDFRL1RvNFJLNEF2TFZ4b2UhZQ==?share_link_id=330959544685).
 
 ---
 
