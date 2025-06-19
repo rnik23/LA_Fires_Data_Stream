@@ -14,6 +14,8 @@ import random
 import time
 import json
 import folium
+from folium.plugins import HeatMap, PolyLineTextPath
+import math
 import requests
 import branca.colormap as cm
 
@@ -179,6 +181,31 @@ def visualize_nodes_folium(nodes):
     return m
 
 
+def visualize_temperature_heatmap(nodes):
+    """Visualize temperature using a heatmap with node markers."""
+    first_node = nodes[0]
+    m = folium.Map(location=[first_node.latitude, first_node.longitude], zoom_start=14)
+    heat_data = [[n.latitude, n.longitude, n.temperature] for n in nodes]
+    HeatMap(heat_data, min_opacity=0.5, radius=25, blur=15, max_zoom=1).add_to(m)
+    for node in nodes:
+        folium.Marker([node.latitude, node.longitude], popup=node.node_id).add_to(m)
+    return m
+
+
+def visualize_wind_vectors(nodes, scale=0.005):
+    """Display wind vectors as arrows originating from each node."""
+    first_node = nodes[0]
+    m = folium.Map(location=[first_node.latitude, first_node.longitude], zoom_start=14)
+    for node in nodes:
+        folium.Marker([node.latitude, node.longitude], popup=node.node_id).add_to(m)
+        speed, direction = node.wind_vector
+        end_lat = node.latitude + scale * speed * math.cos(math.radians(direction))
+        end_lon = node.longitude + scale * speed * math.sin(math.radians(direction))
+        line = folium.PolyLine([[node.latitude, node.longitude], [end_lat, end_lon]], color="blue", weight=2).add_to(m)
+        PolyLineTextPath(line, "→", repeat=True, offset=5, attributes={"fill": "blue", "font-weight": "bold"}).add_to(m)
+    return m
+
+
 def visualize_metric_folium(nodes, metric, accessor=None):
     """Visualize a numeric node attribute on a map using color scaling.
 
@@ -213,24 +240,20 @@ def visualize_metric_folium(nodes, metric, accessor=None):
     colormap.add_to(m)
     return m
 
-# Visualize the IoT nodes
+# Visualize the IoT nodes and metrics
 m = visualize_nodes_folium(nodes)
-m.save("iot_nodes_map.html")  # Save node positions map
+m.save("iot_nodes_map.html")
 
-# Create additional maps for each metric
-temp_map = visualize_metric_folium(nodes, "temperature")
-temp_map.save("iot_temperature_map.html")
+temp_heatmap = visualize_temperature_heatmap(nodes)
+temp_heatmap.save("iot_temperature_heatmap.html")
+
 
 humidity_map = visualize_metric_folium(nodes, "humidity")
 humidity_map.save("iot_humidity_map.html")
 
-# Visualize wind speed (direction is shown in popup)
-wind_speed_map = visualize_metric_folium(
-    nodes,
-    "wind_speed",
-    accessor=lambda n: n.wind_vector[0],
-)
-wind_speed_map.save("iot_wind_speed_map.html")
+wind_vector_map = visualize_wind_vectors(nodes)
+wind_vector_map.save("iot_wind_vector_map.html")
+
 
 
 
