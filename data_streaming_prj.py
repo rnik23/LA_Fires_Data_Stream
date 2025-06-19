@@ -15,8 +15,10 @@ import time
 import json
 import folium
 from folium.plugins import HeatMap, PolyLineTextPath
+
 from folium.raster_layers import ImageOverlay
 import numpy as np
+
 import math
 import requests
 import branca.colormap as cm
@@ -155,6 +157,7 @@ def initialize_nodes_center_grid(grid_size, center_lat, center_long, lat_spread=
             nodes.append(IoTNode(node_id, latitude, longitude, wind_direction=wind_direction))
     return nodes
 
+
 # Example: grid of nodes centered at given coordinates
 nodes = initialize_nodes_center_grid(
     grid_size=5,
@@ -277,11 +280,13 @@ m.save("iot_nodes_map.html")
 temp_heatmap = visualize_temperature_heatmap(nodes)
 temp_heatmap.save("iot_temperature_heatmap.html")
 
+
 humidity_map = visualize_metric_folium(nodes, "humidity")
 humidity_map.save("iot_humidity_map.html")
 
 wind_vector_map = visualize_wind_vectors(nodes)
 wind_vector_map.save("iot_wind_vector_map.html")
+
 
 
 
