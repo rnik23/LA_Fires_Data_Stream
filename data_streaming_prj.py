@@ -9,6 +9,7 @@ import folium
 from folium.plugins import HeatMap, PolyLineTextPath
 import branca.colormap as cm
 
+
 try:
     from kafka import KafkaProducer
 except Exception:  # pragma: no cover - kafka is optional
@@ -18,8 +19,14 @@ except Exception:  # pragma: no cover - kafka is optional
 # Weather helpers
 # ---------------------------------------------------------------------------
 
-def get_current_weather(latitude: float, longitude: float):
-    """Return (temperature, humidity) from the Open-Meteo API."""
+def get_current_weather(
+    latitude: float,
+    longitude: float
+) -> tuple[float | None, float | None, float | None, float | None]:
+    """
+    Return (temperature, humidity, wind_speed, wind_direction)
+    by querying Open-Meteo’s forecast API once.
+    """
     url = "https://api.open-meteo.com/v1/forecast"
     
     params = {
@@ -31,15 +38,24 @@ def get_current_weather(latitude: float, longitude: float):
     }
     try:
         resp = requests.get(url, params=params, timeout=10)
+        resp.raise_for_status()
         data = resp.json()
-        temp = data.get("current_weather", {}).get("temperature")
-        humidity = None
+
+        # current_weather block has temp + wind info
+        cw = data.get("current_weather", {})
+        temp       = cw.get("temperature")
+        wind_speed = cw.get("windspeed")
+        wind_dir   = cw.get("winddirection")
+
+        # humidity comes back in the hourly array
         hourly = data.get("hourly", {})
-        if hourly.get("relative_humidity_2m"):
-            humidity = hourly["relative_humidity_2m"][0]
-        return temp, humidity
+        hum_list = hourly.get("relative_humidity_2m", [])
+        humidity = hum_list[0] if hum_list else None
+
+        return temp, humidity, wind_speed, wind_dir
     except Exception:
-        return None, None
+        # on any error, return all None so caller can fallback
+        return None, None, None, None
 
 # ---------------------------------------------------------------------------
 # Node simulation
@@ -103,7 +119,9 @@ def initialize_nodes_center_grid(
     wind_direction: str = "N",
 ) -> List[IoTNode]:
     """Create a grid of nodes evenly spaced around a center coordinate."""
-    center_temp, center_hum = get_current_weather(center_lat, center_long)
+    center_temp, center_hum, 
+    center_wind_speed, 
+    center_wind_dir = get_current_weather(center_lat, center_long)
     if center_temp is None:
         center_temp = random.uniform(15, 25)
     if center_hum is None:
