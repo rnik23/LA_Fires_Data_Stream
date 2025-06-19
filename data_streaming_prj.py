@@ -138,11 +138,50 @@ def initialize_nodes_center_grid(
 # ---------------------------------------------------------------------------
 
 def visualize_nodes_folium(nodes: List[IoTNode]):
-    """Display node markers on a folium map."""
+    """Display node markers on a folium map as small points."""
     first = nodes[0]
     m = folium.Map(location=[first.latitude, first.longitude], zoom_start=14)
     for n in nodes:
-        folium.Marker([n.latitude, n.longitude], popup=n.node_id).add_to(m)
+        folium.CircleMarker(
+            [n.latitude, n.longitude],
+            radius=3,
+            color="black",
+            fill=True,
+            fill_color="black",
+            fill_opacity=1,
+            popup=n.node_id,
+        ).add_to(m)
+    return m
+
+
+def visualize_temperature_heatmap(nodes: List[IoTNode], zoom_start: int = 14):
+    """Render a smooth temperature heatmap."""
+    first = nodes[0]
+    m = folium.Map(location=[first.latitude, first.longitude], zoom_start=zoom_start)
+    temps = [n.temperature for n in nodes]
+    tmin, tmax = min(temps), max(temps)
+    heat_data = [
+        [n.latitude, n.longitude, (n.temperature - tmin) / (tmax - tmin or 1)]
+        for n in nodes
+    ]
+    HeatMap(
+        heat_data,
+        min_opacity=0.3,
+        radius=50,
+        blur=35,
+        max_zoom=zoom_start,
+        gradient={0.2: "blue", 0.4: "cyan", 0.6: "lime", 0.8: "yellow", 1.0: "red"},
+    ).add_to(m)
+    for n in nodes:
+        folium.CircleMarker(
+            [n.latitude, n.longitude],
+            radius=3,
+            color="black",
+            fill=True,
+            fill_color="black",
+            fill_opacity=1,
+            popup=n.node_id,
+        ).add_to(m)
     return m
 
 
@@ -168,39 +207,40 @@ def visualize_temperature_heatmap(nodes: List[IoTNode], zoom_start: int = 14):
         folium.Marker([n.latitude, n.longitude], popup=n.node_id).add_to(m)
     return m
 
-def visualize_temperature_heatmap(nodes: List[IoTNode], zoom_start: int = 14):
-    """Render a smooth temperature heatmap."""
-    first = nodes[0]
-    m = folium.Map(location=[first.latitude, first.longitude], zoom_start=zoom_start)
-    temps = [n.temperature for n in nodes]
-    tmin, tmax = min(temps), max(temps)
-    heat_data = [
-        [n.latitude, n.longitude, (n.temperature - tmin) / (tmax - tmin or 1)]
-        for n in nodes
-    ]
-    HeatMap(
-        heat_data,
-        min_opacity=0.3,
-        radius=50,
-        blur=35,
-        max_zoom=zoom_start,
-        gradient={0.2: "blue", 0.4: "cyan", 0.6: "lime", 0.8: "yellow", 1.0: "red"},
-    ).add_to(m)
-    for n in nodes:
-        folium.Marker([n.latitude, n.longitude], popup=n.node_id).add_to(m)
-    return m
 
 def visualize_wind_vectors(nodes: List[IoTNode], scale: float = 0.005):
-    """Draw wind direction arrows for each node."""
+    """Draw wind direction arrows for each node with color-coded speed."""
     first = nodes[0]
     m = folium.Map(location=[first.latitude, first.longitude], zoom_start=14)
+    speeds = [n.wind_vector[0] for n in nodes]
+    cmap = cm.linear.PuBu_09.scale(min(speeds), max(speeds))
     for n in nodes:
-        folium.Marker([n.latitude, n.longitude], popup=n.node_id).add_to(m)
+        folium.CircleMarker(
+            [n.latitude, n.longitude],
+            radius=3,
+            color="black",
+            fill=True,
+            fill_color="black",
+            fill_opacity=1,
+            popup=n.node_id,
+        ).add_to(m)
         speed, direction = n.wind_vector
         end_lat = n.latitude + scale * speed * math.cos(math.radians(direction))
         end_lon = n.longitude + scale * speed * math.sin(math.radians(direction))
-        line = folium.PolyLine([[n.latitude, n.longitude], [end_lat, end_lon]], color="blue", weight=2).add_to(m)
-        PolyLineTextPath(line, "→", repeat=True, offset=5, attributes={"fill": "blue", "font-weight": "bold"}).add_to(m)
+        line = folium.PolyLine(
+            [[n.latitude, n.longitude], [end_lat, end_lon]],
+            color=cmap(speed),
+            weight=2,
+        ).add_to(m)
+        PolyLineTextPath(
+            line,
+            "→",
+            repeat=True,
+            offset=5,
+            attributes={"fill": cmap(speed), "font-weight": "bold"},
+        ).add_to(m)
+    cmap.caption = "Wind speed"
+    cmap.add_to(m)
     return m
 
 
@@ -208,24 +248,25 @@ def visualize_metric_folium(
     nodes: List[IoTNode],
     metric: str,
     accessor: Optional[Callable[[IoTNode], float]] = None,
+    colormap=cm.linear.YlOrRd_09,
 ):
     """Color nodes by ``metric`` using a linear colormap."""
     first = nodes[0]
     m = folium.Map(location=[first.latitude, first.longitude], zoom_start=14)
     values = [accessor(n) if accessor else getattr(n, metric) for n in nodes]
-    colormap = cm.linear.YlOrRd_09.scale(min(values), max(values))
+    cmap = colormap.scale(min(values), max(values))
     for n in nodes:
         val = accessor(n) if accessor else getattr(n, metric)
         folium.CircleMarker(
             [n.latitude, n.longitude],
-            radius=6,
-            color=colormap(val),
+            radius=4,
+            color=cmap(val),
             fill=True,
-            fill_color=colormap(val),
+            fill_color=cmap(val),
             popup=f"{n.node_id} {metric}: {val:.2f}",
         ).add_to(m)
-    colormap.caption = metric.capitalize()
-    colormap.add_to(m)
+    cmap.caption = metric.capitalize()
+    cmap.add_to(m)
     return m
 
 # ---------------------------------------------------------------------------
