@@ -10,36 +10,6 @@ import requests
 import folium
 from folium.plugins import HeatMap, PolyLineTextPath
 import branca.colormap as cm
-from folium.raster_layers import ImageOverlay
-import numpy as np
-
-import math
-import requests
-import branca.colormap as cm
-
-
-def get_current_weather(latitude, longitude):
-    """Fetch current temperature and humidity from Open-Meteo."""
-    url = "https://api.open-meteo.com/v1/forecast"
-    params = {
-        "latitude": latitude,
-        "longitude": longitude,
-        "current_weather": True,
-        "hourly": "relative_humidity_2m",
-        "timezone": "UTC",
-    }
-    try:
-        response = requests.get(url, params=params, timeout=10)
-        data = response.json()
-        temp = data.get("current_weather", {}).get("temperature")
-        humidity = None
-        hourly = data.get("hourly", {})
-        if hourly.get("relative_humidity_2m"):
-            humidity = hourly["relative_humidity_2m"][0]
-        return temp, humidity
-    except Exception:
-        return None, None
-
 
 try:
     from kafka import KafkaProducer
@@ -90,15 +60,21 @@ class IoTNode:
         "NW": 315,
     }
 
-
-    def __init__(self, node_id: str, latitude: float, longitude: float, wind_direction: str = "N"):
+    def __init__(
+        self,
+        node_id: str,
+        latitude: float,
+        longitude: float,
+        temperature: float,
+        humidity: float,
+        wind_direction: str = "N",
+    ):
         self.node_id = node_id
         self.latitude = latitude
         self.longitude = longitude
-        temp, hum = get_current_weather(latitude, longitude)
-        self.temperature = temp if temp is not None else random.uniform(15, 25)
-        self.humidity = hum if hum is not None else random.uniform(30, 50)
 
+        self.temperature = temperature
+        self.humidity = humidity
         self.wind_vector = (
             random.uniform(0, 10),
             self.DIRECTIONS.get(wind_direction.upper(), 0),
@@ -130,6 +106,11 @@ def initialize_nodes_center_grid(
     wind_direction: str = "N",
 ) -> List[IoTNode]:
     """Create a grid of nodes evenly spaced around a center coordinate."""
+    temp, hum = get_current_weather(center_lat, center_long)
+    if temp is None:
+        temp = random.uniform(15, 25)
+    if hum is None:
+        hum = random.uniform(30, 50)
     nodes = []
     lat_start = center_lat - lat_spread
     lon_start = center_long - lon_spread
@@ -140,7 +121,16 @@ def initialize_nodes_center_grid(
             latitude = lat_start + i * lat_step
             longitude = lon_start + j * lon_step
             node_id = f"node_{i+1}_{j+1}"
-            nodes.append(IoTNode(node_id, latitude, longitude, wind_direction))
+            nodes.append(
+                IoTNode(
+                    node_id,
+                    latitude,
+                    longitude,
+                    temperature=temp,
+                    humidity=hum,
+                    wind_direction=wind_direction,
+                )
+            )
     return nodes
 
 # ---------------------------------------------------------------------------
@@ -178,6 +168,27 @@ def visualize_temperature_heatmap(nodes: List[IoTNode], zoom_start: int = 14):
         folium.Marker([n.latitude, n.longitude], popup=n.node_id).add_to(m)
     return m
 
+def visualize_temperature_heatmap(nodes: List[IoTNode], zoom_start: int = 14):
+    """Render a smooth temperature heatmap."""
+    first = nodes[0]
+    m = folium.Map(location=[first.latitude, first.longitude], zoom_start=zoom_start)
+    temps = [n.temperature for n in nodes]
+    tmin, tmax = min(temps), max(temps)
+    heat_data = [
+        [n.latitude, n.longitude, (n.temperature - tmin) / (tmax - tmin or 1)]
+        for n in nodes
+    ]
+    HeatMap(
+        heat_data,
+        min_opacity=0.3,
+        radius=50,
+        blur=35,
+        max_zoom=zoom_start,
+        gradient={0.2: "blue", 0.4: "cyan", 0.6: "lime", 0.8: "yellow", 1.0: "red"},
+    ).add_to(m)
+    for n in nodes:
+        folium.Marker([n.latitude, n.longitude], popup=n.node_id).add_to(m)
+    return m
 
 def visualize_wind_vectors(nodes: List[IoTNode], scale: float = 0.005):
     """Draw wind direction arrows for each node."""
@@ -191,7 +202,6 @@ def visualize_wind_vectors(nodes: List[IoTNode], scale: float = 0.005):
         line = folium.PolyLine([[n.latitude, n.longitude], [end_lat, end_lon]], color="blue", weight=2).add_to(m)
         PolyLineTextPath(line, "→", repeat=True, offset=5, attributes={"fill": "blue", "font-weight": "bold"}).add_to(m)
     return m
-
 
 
 def visualize_metric_folium(
