@@ -17,6 +17,7 @@ import folium
 from folium.plugins import HeatMap, PolyLineTextPath
 from folium.raster_layers import ImageOverlay
 import numpy as np
+
 import math
 import requests
 import branca.colormap as cm
@@ -247,7 +248,6 @@ def visualize_wind_vectors(nodes, scale=0.005):
         PolyLineTextPath(line, "→", repeat=True, offset=5, attributes={"fill": "blue", "font-weight": "bold"}).add_to(m)
     return m
 
-
 def visualize_metric_folium(nodes, metric, accessor=None):
     """Visualize a numeric node attribute on a map using color scaling.
 
@@ -289,11 +289,13 @@ m.save("iot_nodes_map.html")
 temp_heatmap = visualize_temperature_heatmap(nodes)
 temp_heatmap.save("iot_temperature_heatmap.html")
 
+
 humidity_map = visualize_metric_folium(nodes, "humidity")
 humidity_map.save("iot_humidity_map.html")
 
 wind_vector_map = visualize_wind_vectors(nodes)
 wind_vector_map.save("iot_wind_vector_map.html")
+
 
 
 
