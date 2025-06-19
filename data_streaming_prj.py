@@ -15,7 +15,6 @@ import time
 import json
 import folium
 from folium.plugins import HeatMap, PolyLineTextPath
-
 from folium.raster_layers import ImageOverlay
 import numpy as np
 
@@ -157,7 +156,6 @@ def initialize_nodes_center_grid(grid_size, center_lat, center_long, lat_spread=
             nodes.append(IoTNode(node_id, latitude, longitude, wind_direction=wind_direction))
     return nodes
 
-
 # Example: grid of nodes centered at given coordinates
 nodes = initialize_nodes_center_grid(
     grid_size=5,
@@ -206,18 +204,30 @@ def _estimate_heat_radius(nodes, zoom=14):
 
 
 def visualize_temperature_heatmap(nodes, zoom_start=14):
-    """Visualize temperature with HeatMap radius based on node spacing."""
+    """Visualize temperature as a smooth, continuous heatmap."""
     first_node = nodes[0]
     m = folium.Map(location=[first_node.latitude, first_node.longitude], zoom_start=zoom_start)
 
-    radius = _estimate_heat_radius(nodes, zoom=zoom_start)
-    heat_data = [[n.latitude, n.longitude, n.temperature] for n in nodes]
+    temps = [n.temperature for n in nodes]
+    min_temp, max_temp = min(temps), max(temps)
+    heat_data = [
+        [n.latitude, n.longitude, (n.temperature - min_temp) / (max_temp - min_temp or 1)]
+        for n in nodes
+    ]
+
     HeatMap(
         heat_data,
-        min_opacity=0.5,
-        radius=radius,
-        blur=max(1, radius // 2),
+        min_opacity=0.3,
+        radius=50,
+        blur=35,
         max_zoom=zoom_start,
+        gradient={
+            0.2: "blue",
+            0.4: "cyan",
+            0.6: "lime",
+            0.8: "yellow",
+            1.0: "red",
+        },
     ).add_to(m)
 
     for node in nodes:
@@ -237,7 +247,6 @@ def visualize_wind_vectors(nodes, scale=0.005):
         line = folium.PolyLine([[node.latitude, node.longitude], [end_lat, end_lon]], color="blue", weight=2).add_to(m)
         PolyLineTextPath(line, "→", repeat=True, offset=5, attributes={"fill": "blue", "font-weight": "bold"}).add_to(m)
     return m
-
 
 def visualize_metric_folium(nodes, metric, accessor=None):
     """Visualize a numeric node attribute on a map using color scaling.
