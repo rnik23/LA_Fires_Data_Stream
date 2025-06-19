@@ -10,6 +10,36 @@ import requests
 import folium
 from folium.plugins import HeatMap, PolyLineTextPath
 import branca.colormap as cm
+from folium.raster_layers import ImageOverlay
+import numpy as np
+
+import math
+import requests
+import branca.colormap as cm
+
+
+def get_current_weather(latitude, longitude):
+    """Fetch current temperature and humidity from Open-Meteo."""
+    url = "https://api.open-meteo.com/v1/forecast"
+    params = {
+        "latitude": latitude,
+        "longitude": longitude,
+        "current_weather": True,
+        "hourly": "relative_humidity_2m",
+        "timezone": "UTC",
+    }
+    try:
+        response = requests.get(url, params=params, timeout=10)
+        data = response.json()
+        temp = data.get("current_weather", {}).get("temperature")
+        humidity = None
+        hourly = data.get("hourly", {})
+        if hourly.get("relative_humidity_2m"):
+            humidity = hourly["relative_humidity_2m"][0]
+        return temp, humidity
+    except Exception:
+        return None, None
+
 
 try:
     from kafka import KafkaProducer
@@ -60,11 +90,11 @@ class IoTNode:
         "NW": 315,
     }
 
+
     def __init__(self, node_id: str, latitude: float, longitude: float, wind_direction: str = "N"):
         self.node_id = node_id
         self.latitude = latitude
         self.longitude = longitude
-
         temp, hum = get_current_weather(latitude, longitude)
         self.temperature = temp if temp is not None else random.uniform(15, 25)
         self.humidity = hum if hum is not None else random.uniform(30, 50)
@@ -161,6 +191,7 @@ def visualize_wind_vectors(nodes: List[IoTNode], scale: float = 0.005):
         line = folium.PolyLine([[n.latitude, n.longitude], [end_lat, end_lon]], color="blue", weight=2).add_to(m)
         PolyLineTextPath(line, "→", repeat=True, offset=5, attributes={"fill": "blue", "font-weight": "bold"}).add_to(m)
     return m
+
 
 
 def visualize_metric_folium(
