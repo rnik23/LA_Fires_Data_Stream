@@ -75,6 +75,7 @@ class IoTNode:
         "NW": 315,
     }
 
+    # added two features: wind dir, speed
     def __init__(
         self,
         node_id: str,
@@ -82,6 +83,8 @@ class IoTNode:
         longitude: float,
         temperature: float,
         humidity: float,
+        base_wind_speed: float,
+        base_wind_dir: float,
         wind_direction: str = "N",
     ):
         self.node_id = node_id
@@ -89,6 +92,10 @@ class IoTNode:
         self.longitude = longitude
         self.temperature = temperature
         self.humidity = humidity
+        self.base_wind_speed = base_wind_speed
+        self.base_wind_dir   = base_wind_dir
+        # you can stash the variability model here too
+        # e.g. self.wind_stream = wind_generator(base_wind_speed, base_wind_dir)
         self.wind_vector = (
             random.uniform(0, 10),
             self.DIRECTIONS.get(wind_direction.upper(), 0),
@@ -119,13 +126,15 @@ def initialize_nodes_center_grid(
     wind_direction: str = "N",
 ) -> List[IoTNode]:
     """Create a grid of nodes evenly spaced around a center coordinate."""
-    center_temp, center_hum, 
-    center_wind_speed, 
-    center_wind_dir = get_current_weather(center_lat, center_long)
+    center_temp, center_hum, wind_speed, wind_dir = get_current_weather(center_lat, center_long)
     if center_temp is None:
         center_temp = random.uniform(15, 25)
     if center_hum is None:
         center_hum = random.uniform(30, 50)
+    if wind_speed is None:
+        wind_speed = random.uniform(0, 5)   # pick a reasonable default
+    if wind_dir is None:
+        wind_dir = DIRECTIONS.get(wind_direction, 0)
     nodes = []
     lat_start = center_lat - lat_spread
     lon_start = center_long - lon_spread
@@ -152,7 +161,9 @@ def initialize_nodes_center_grid(
                     longitude,
                     wind_direction=wind_direction,
                     temperature = temp,
-                    humidity= hum
+                    humidity= hum,
+                    base_wind_speed=wind_speed,
+                    base_wind_dir=wind_dir
                 )
             )
     return nodes
