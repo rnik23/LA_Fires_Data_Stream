@@ -1,11 +1,9 @@
 """Utilities to simulate IoT fire monitoring nodes and visualize readings."""
-
 import json
 import math
 import random
 import time
 from typing import Callable, List, Optional
-
 import requests
 import folium
 from folium.plugins import HeatMap, PolyLineTextPath
@@ -23,6 +21,7 @@ except Exception:  # pragma: no cover - kafka is optional
 def get_current_weather(latitude: float, longitude: float):
     """Return (temperature, humidity) from the Open-Meteo API."""
     url = "https://api.open-meteo.com/v1/forecast"
+    
     params = {
         "latitude": latitude,
         "longitude": longitude,
@@ -72,7 +71,6 @@ class IoTNode:
         self.node_id = node_id
         self.latitude = latitude
         self.longitude = longitude
-
         self.temperature = temperature
         self.humidity = humidity
         self.wind_vector = (
@@ -96,7 +94,6 @@ class IoTNode:
             "humidity": round(self.humidity, 2),
         }
 
-
 def initialize_nodes_center_grid(
     grid_size: int,
     center_lat: float,
@@ -106,29 +103,38 @@ def initialize_nodes_center_grid(
     wind_direction: str = "N",
 ) -> List[IoTNode]:
     """Create a grid of nodes evenly spaced around a center coordinate."""
-    temp, hum = get_current_weather(center_lat, center_long)
-    if temp is None:
-        temp = random.uniform(15, 25)
-    if hum is None:
-        hum = random.uniform(30, 50)
+    center_temp, center_hum = get_current_weather(center_lat, center_long)
+    if center_temp is None:
+        center_temp = random.uniform(15, 25)
+    if center_hum is None:
+        center_hum = random.uniform(30, 50)
     nodes = []
     lat_start = center_lat - lat_spread
     lon_start = center_long - lon_spread
     lat_step = (2 * lat_spread) / max(grid_size - 1, 1)
     lon_step = (2 * lon_spread) / max(grid_size - 1, 1)
+
+    # typical low-cost digital temperature sensors (e.g. DHT22) have about ±2% accuracy
+    noise_pct = 0.02
+
     for i in range(grid_size):
         for j in range(grid_size):
             latitude = lat_start + i * lat_step
             longitude = lon_start + j * lon_step
             node_id = f"node_{i+1}_{j+1}"
+            temp_noise = center_temp * random.uniform(-noise_pct, noise_pct)
+            hum_noise  = center_hum  * random.uniform(-noise_pct, noise_pct)
+            # apply ±noise_pct variation
+            temp = center_temp + temp_noise
+            hum  = center_hum   + hum_noise
             nodes.append(
                 IoTNode(
                     node_id,
                     latitude,
                     longitude,
-                    temperature=temp,
-                    humidity=hum,
                     wind_direction=wind_direction,
+                    temperature = temp,
+                    humidity= hum
                 )
             )
     return nodes
@@ -154,24 +160,61 @@ def visualize_nodes_folium(nodes: List[IoTNode]):
     return m
 
 
+import statistics
+
+import statistics
+
 def visualize_temperature_heatmap(nodes: List[IoTNode], zoom_start: int = 14):
-    """Render a smooth temperature heatmap."""
+    """Render a heatmap that only shows red for >2σ deviations—normal noise stays in cooler colors."""
+    # center map
     first = nodes[0]
     m = folium.Map(location=[first.latitude, first.longitude], zoom_start=zoom_start)
+
+    # compute mean & σ
     temps = [n.temperature for n in nodes]
-    tmin, tmax = min(temps), max(temps)
-    heat_data = [
-        [n.latitude, n.longitude, (n.temperature - tmin) / (tmax - tmin or 1)]
-        for n in nodes
-    ]
+    mean_temp = statistics.mean(temps)
+    std_temp = statistics.pstdev(temps) or 1
+
+    # we’ll treat ±2σ as our “alarm” threshold
+    z_threshold = 3.0
+    lower, upper = -z_threshold * std_temp, z_threshold * std_temp
+
+    heat_data = []
+    for n in nodes:
+        z = (n.temperature - mean_temp) / std_temp
+        # clamp into ±2σ
+        z_clamped = max(lower, min(upper, z))
+        # normalize to [0, 1]
+        norm = (z_clamped - lower) / (upper - lower)
+
+        # if it’s within threshold, push it into the cooler half of the scale
+        if abs(z) < z_threshold:
+            weight = norm * 0.5     # 0.0–0.5 range → blue→cyan
+        else:
+            # if it’s beyond threshold, map into 0.5–1.0 range → yellow→red
+            # (abs(z)-threshold)/(z_threshold) gives 0.0–1.0 for z in [±2σ…±4σ], but we already clamped to 2σ
+            weight = 0.5 + (abs(z_clamped) - (z_threshold * std_temp)) / ((z_threshold * std_temp) - lower) * 0.5
+
+        heat_data.append([n.latitude, n.longitude, weight])
+
+    gradient = {
+        0.0: "blue",    # cold outliers up to -2σ
+        0.25: "cyan",  
+        0.5: "lime",    # normal noise (±2σ)
+        0.75: "yellow", # slight alarms
+        1.0: "red",     # full alarm (>2σ)
+    }
+
     HeatMap(
         heat_data,
         min_opacity=0.3,
         radius=50,
         blur=35,
         max_zoom=zoom_start,
-        gradient={0.2: "blue", 0.4: "cyan", 0.6: "lime", 0.8: "yellow", 1.0: "red"},
+        gradient=gradient,
     ).add_to(m)
+
+    # still drop markers for context
     for n in nodes:
         folium.CircleMarker(
             [n.latitude, n.longitude],
@@ -182,29 +225,7 @@ def visualize_temperature_heatmap(nodes: List[IoTNode], zoom_start: int = 14):
             fill_opacity=1,
             popup=n.node_id,
         ).add_to(m)
-    return m
 
-
-def visualize_temperature_heatmap(nodes: List[IoTNode], zoom_start: int = 14):
-    """Render a smooth temperature heatmap."""
-    first = nodes[0]
-    m = folium.Map(location=[first.latitude, first.longitude], zoom_start=zoom_start)
-    temps = [n.temperature for n in nodes]
-    tmin, tmax = min(temps), max(temps)
-    heat_data = [
-        [n.latitude, n.longitude, (n.temperature - tmin) / (tmax - tmin or 1)]
-        for n in nodes
-    ]
-    HeatMap(
-        heat_data,
-        min_opacity=0.3,
-        radius=50,
-        blur=35,
-        max_zoom=zoom_start,
-        gradient={0.2: "blue", 0.4: "cyan", 0.6: "lime", 0.8: "yellow", 1.0: "red"},
-    ).add_to(m)
-    for n in nodes:
-        folium.Marker([n.latitude, n.longitude], popup=n.node_id).add_to(m)
     return m
 
 
@@ -315,4 +336,4 @@ if __name__ == "__main__":
     visualize_metric_folium(nodes, "humidity").save("iot_humidity_map.html")
     visualize_wind_vectors(nodes).save("iot_wind_vector_map.html")
     # Uncomment to stream data
-    # stream_data(nodes, topic="iot_fire_data", interval=2)
+    #stream_data(nodes, topic="iot_fire_data", interval=2)
