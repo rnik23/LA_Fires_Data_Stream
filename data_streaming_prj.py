@@ -11,12 +11,34 @@ import folium
 from folium.plugins import HeatMap, PolyLineTextPath
 import branca.colormap as cm
 
-try:
-    from kafka import KafkaProducer
-except Exception:  # pragma: no cover - kafka is optional
-    KafkaProducer = None
+    def __init__(
+        self,
+        node_id: str,
+        latitude: float,
+        longitude: float,
+        temperature: float,
+        humidity: float,
+        wind_direction: str = "N",
+    ):
+        self.temperature = temperature
+        self.humidity = humidity
 
-# ---------------------------------------------------------------------------
+    temp, hum = get_current_weather(center_lat, center_long)
+    if temp is None:
+        temp = random.uniform(15, 25)
+    if hum is None:
+        hum = random.uniform(30, 50)
+
+            nodes.append(
+                IoTNode(
+                    node_id,
+                    latitude,
+                    longitude,
+                    temperature=temp,
+                    humidity=hum,
+                    wind_direction=wind_direction,
+                )
+            )
 # Weather helpers
 # ---------------------------------------------------------------------------
 
