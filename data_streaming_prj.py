@@ -8,6 +8,8 @@ import requests
 import folium
 from folium.plugins import HeatMap, PolyLineTextPath
 import branca.colormap as cm
+import statistics
+
 
 try:
     from kafka import KafkaProducer
@@ -18,8 +20,14 @@ except Exception:  # pragma: no cover - kafka is optional
 # Weather helpers
 # ---------------------------------------------------------------------------
 
-def get_current_weather(latitude: float, longitude: float):
-    """Return (temperature, humidity) from the Open-Meteo API."""
+def get_current_weather(
+    latitude: float,
+    longitude: float
+) -> tuple[float | None, float | None, float | None, float | None]:
+    """
+    Return (temperature, humidity, wind_speed, wind_direction)
+    by querying Open-Meteo’s forecast API once.
+    """
     url = "https://api.open-meteo.com/v1/forecast"
     
     params = {
@@ -31,15 +39,24 @@ def get_current_weather(latitude: float, longitude: float):
     }
     try:
         resp = requests.get(url, params=params, timeout=10)
+        resp.raise_for_status()
         data = resp.json()
-        temp = data.get("current_weather", {}).get("temperature")
-        humidity = None
+
+        # current_weather block has temp + wind info
+        cw = data.get("current_weather", {})
+        temp       = cw.get("temperature")
+        wind_speed = cw.get("windspeed")
+        wind_dir   = cw.get("winddirection")
+
+        # humidity comes back in the hourly array
         hourly = data.get("hourly", {})
-        if hourly.get("relative_humidity_2m"):
-            humidity = hourly["relative_humidity_2m"][0]
-        return temp, humidity
+        hum_list = hourly.get("relative_humidity_2m", [])
+        humidity = hum_list[0] if hum_list else None
+
+        return temp, humidity, wind_speed, wind_dir
     except Exception:
-        return None, None
+        # on any error, return all None so caller can fallback
+        return None, None, None, None
 
 # ---------------------------------------------------------------------------
 # Node simulation
@@ -59,6 +76,7 @@ class IoTNode:
         "NW": 315,
     }
 
+    # added two features: wind dir, speed
     def __init__(
         self,
         node_id: str,
@@ -66,6 +84,8 @@ class IoTNode:
         longitude: float,
         temperature: float,
         humidity: float,
+        base_wind_speed: float,
+        base_wind_dir: float,
         wind_direction: str = "N",
     ):
         self.node_id = node_id
@@ -73,6 +93,10 @@ class IoTNode:
         self.longitude = longitude
         self.temperature = temperature
         self.humidity = humidity
+        self.base_wind_speed = base_wind_speed
+        self.base_wind_dir   = base_wind_dir
+        # you can stash the variability model here too
+        # e.g. self.wind_stream = wind_generator(base_wind_speed, base_wind_dir)
         self.wind_vector = (
             random.uniform(0, 10),
             self.DIRECTIONS.get(wind_direction.upper(), 0),
@@ -103,11 +127,15 @@ def initialize_nodes_center_grid(
     wind_direction: str = "N",
 ) -> List[IoTNode]:
     """Create a grid of nodes evenly spaced around a center coordinate."""
-    center_temp, center_hum = get_current_weather(center_lat, center_long)
+    center_temp, center_hum, wind_speed, wind_dir = get_current_weather(center_lat, center_long)
     if center_temp is None:
         center_temp = random.uniform(15, 25)
     if center_hum is None:
         center_hum = random.uniform(30, 50)
+    if wind_speed is None:
+        wind_speed = random.uniform(0, 5)   # pick a reasonable default
+    if wind_dir is None:
+        wind_dir = DIRECTIONS.get(wind_direction, 0)
     nodes = []
     lat_start = center_lat - lat_spread
     lon_start = center_long - lon_spread
@@ -134,7 +162,9 @@ def initialize_nodes_center_grid(
                     longitude,
                     wind_direction=wind_direction,
                     temperature = temp,
-                    humidity= hum
+                    humidity= hum,
+                    base_wind_speed=wind_speed,
+                    base_wind_dir=wind_dir
                 )
             )
     return nodes
@@ -159,10 +189,6 @@ def visualize_nodes_folium(nodes: List[IoTNode]):
         ).add_to(m)
     return m
 
-
-import statistics
-
-import statistics
 
 def visualize_temperature_heatmap(nodes: List[IoTNode], zoom_start: int = 14):
     """Render a heatmap that only shows red for >2σ deviations—normal noise stays in cooler colors."""
@@ -330,6 +356,7 @@ if __name__ == "__main__":
         lon_spread=0.02,
         wind_direction="NE",
     )
+
 
     visualize_nodes_folium(nodes).save("iot_nodes_map.html")
     visualize_temperature_heatmap(nodes).save("iot_temperature_heatmap.html")
