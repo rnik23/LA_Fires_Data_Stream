@@ -15,6 +15,8 @@ import time
 import json
 import folium
 import requests
+import branca.colormap as cm
+
 
 
 def get_current_weather(latitude, longitude):
@@ -129,19 +131,30 @@ def initialize_nodes(grid_size, start_lat, start_long, step=0.01, wind_direction
     return nodes
 
 
-def initialize_nodes_center(num_nodes, center_lat, center_long, lat_spread=0.01, lon_spread=0.01, wind_direction="N"):
-    """Create nodes randomly distributed around a center coordinate."""
+def initialize_nodes_center_grid(grid_size, center_lat, center_long, lat_spread=0.01, lon_spread=0.01, wind_direction="N"):
+    """Create a grid of nodes centered around a coordinate.
+
+    The grid is spread evenly across the latitude and longitude ranges
+    defined by ``lat_spread`` and ``lon_spread`` (on either side of the
+    center point).
+    """
     nodes = []
-    for i in range(num_nodes):
-        latitude = center_lat + random.uniform(-lat_spread, lat_spread)
-        longitude = center_long + random.uniform(-lon_spread, lon_spread)
-        node_id = f"node_{i+1}"
-        nodes.append(IoTNode(node_id, latitude, longitude, wind_direction=wind_direction))
+    lat_start = center_lat - lat_spread
+    lon_start = center_long - lon_spread
+    # Avoid division by zero when grid_size == 1
+    lat_step = (2 * lat_spread) / max(grid_size - 1, 1)
+    lon_step = (2 * lon_spread) / max(grid_size - 1, 1)
+    for i in range(grid_size):
+        for j in range(grid_size):
+            latitude = lat_start + i * lat_step
+            longitude = lon_start + j * lon_step
+            node_id = f"node_{i+1}_{j+1}"
+            nodes.append(IoTNode(node_id, latitude, longitude, wind_direction=wind_direction))
     return nodes
 
-# Example: randomly distributed nodes around a center coordinate
-nodes = initialize_nodes_center(
-    num_nodes=25,
+# Example: grid of nodes centered at given coordinates
+nodes = initialize_nodes_center_grid(
+    grid_size=5,
     center_lat=34.0522,
     center_long=-118.2437,
     lat_spread=0.02,
@@ -158,20 +171,67 @@ import folium
 
 # Function to visualize nodes on a map
 def visualize_nodes_folium(nodes):
-    # Initialize the map centered around the first node
+    """Basic map showing node positions."""
     first_node = nodes[0]
     m = folium.Map(location=[first_node.latitude, first_node.longitude], zoom_start=14)
-    
-    # Add nodes as markers on the map
     for node in nodes:
         folium.Marker([node.latitude, node.longitude], popup=node.node_id).add_to(m)
-    
+    return m
+
+
+def visualize_metric_folium(nodes, metric, accessor=None):
+    """Visualize a numeric node attribute on a map using color scaling.
+
+    Parameters
+    ----------
+    nodes : list
+        List of ``IoTNode`` objects.
+    metric : str
+        Attribute name to visualize.
+    accessor : callable, optional
+        If provided, called with a node to get the value instead of
+        ``getattr(node, metric)``.
+    """
+    first_node = nodes[0]
+    m = folium.Map(location=[first_node.latitude, first_node.longitude], zoom_start=14)
+    if accessor is None:
+        values = [getattr(n, metric) for n in nodes]
+    else:
+        values = [accessor(n) for n in nodes]
+    colormap = cm.linear.YlOrRd_09.scale(min(values), max(values))
+    for node in nodes:
+        val = accessor(node) if accessor else getattr(node, metric)
+        folium.CircleMarker(
+            [node.latitude, node.longitude],
+            radius=6,
+            color=colormap(val),
+            fill=True,
+            fill_color=colormap(val),
+            popup=f"{node.node_id} {metric}: {val:.2f}",
+        ).add_to(m)
+    colormap.caption = metric.capitalize()
+    colormap.add_to(m)
     return m
 
 # Visualize the IoT nodes
 m = visualize_nodes_folium(nodes)
-m.save("iot_nodes_map.html")  # Save the map to an HTML file
-m
+m.save("iot_nodes_map.html")  # Save node positions map
+
+# Create additional maps for each metric
+temp_map = visualize_metric_folium(nodes, "temperature")
+temp_map.save("iot_temperature_map.html")
+
+humidity_map = visualize_metric_folium(nodes, "humidity")
+humidity_map.save("iot_humidity_map.html")
+
+# Visualize wind speed (direction is shown in popup)
+wind_speed_map = visualize_metric_folium(
+    nodes,
+    "wind_speed",
+    accessor=lambda n: n.wind_vector[0],
+)
+wind_speed_map.save("iot_wind_speed_map.html")
+
 
 
 # ### 3. Kafka Integration:
