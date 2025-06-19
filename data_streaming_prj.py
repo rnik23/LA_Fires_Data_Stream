@@ -18,6 +18,7 @@ import requests
 import branca.colormap as cm
 
 
+
 def get_current_weather(latitude, longitude):
     """Fetch current temperature and humidity from Open-Meteo."""
     url = "https://api.open-meteo.com/v1/forecast"
