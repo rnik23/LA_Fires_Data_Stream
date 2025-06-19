@@ -9,6 +9,7 @@ import folium
 from folium.plugins import HeatMap, PolyLineTextPath
 import branca.colormap as cm
 import statistics
+import random
 
 
 try:
@@ -57,6 +58,28 @@ def get_current_weather(
     except Exception:
         # on any error, return all None so caller can fallback
         return None, None, None, None
+    
+    """
+    Yields a new wind speed on each call:
+        - With probability `gust_prob` you get a gust of +[gust_min..gust_max] m/s.
+        - Otherwise you autoregress toward base_speed with noise ~ N(0, sigma).
+    """
+    def wind_generator(
+        base_speed: float,
+        phi: float = 0.8,
+        sigma: float = 0.5,
+        gust_prob: float = 0.05,
+        gust_min: float = 5.0,
+        gust_max: float = 15.0,
+        ):
+        prev = base_speed
+        while True:
+            if random.random() < gust_prob:
+                speed = prev + random.uniform(gust_min, gust_max)
+            else:
+                speed = base_speed + phi * (prev - base_speed) + random.gauss(0, sigma)
+            prev = speed
+            yield max(speed, 0.0)
 
 # ---------------------------------------------------------------------------
 # Node simulation
