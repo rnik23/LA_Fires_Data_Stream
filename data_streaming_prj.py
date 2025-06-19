@@ -20,6 +20,7 @@ import requests
 import branca.colormap as cm
 
 
+
 def get_current_weather(latitude, longitude):
     """Fetch current temperature and humidity from Open-Meteo."""
     url = "https://api.open-meteo.com/v1/forecast"
@@ -246,11 +247,13 @@ m.save("iot_nodes_map.html")
 temp_heatmap = visualize_temperature_heatmap(nodes)
 temp_heatmap.save("iot_temperature_heatmap.html")
 
+
 humidity_map = visualize_metric_folium(nodes, "humidity")
 humidity_map.save("iot_humidity_map.html")
 
 wind_vector_map = visualize_wind_vectors(nodes)
 wind_vector_map.save("iot_wind_vector_map.html")
+
 
 
 
