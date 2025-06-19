@@ -75,7 +75,6 @@ class IoTNode:
 
         self.temperature = temperature
         self.humidity = humidity
-
         self.wind_vector = (
             random.uniform(0, 10),
             self.DIRECTIONS.get(wind_direction.upper(), 0),
@@ -112,7 +111,6 @@ def initialize_nodes_center_grid(
         temp = random.uniform(15, 25)
     if hum is None:
         hum = random.uniform(30, 50)
-
     nodes = []
     lat_start = center_lat - lat_spread
     lon_start = center_long - lon_spread
@@ -170,6 +168,27 @@ def visualize_temperature_heatmap(nodes: List[IoTNode], zoom_start: int = 14):
         folium.Marker([n.latitude, n.longitude], popup=n.node_id).add_to(m)
     return m
 
+def visualize_temperature_heatmap(nodes: List[IoTNode], zoom_start: int = 14):
+    """Render a smooth temperature heatmap."""
+    first = nodes[0]
+    m = folium.Map(location=[first.latitude, first.longitude], zoom_start=zoom_start)
+    temps = [n.temperature for n in nodes]
+    tmin, tmax = min(temps), max(temps)
+    heat_data = [
+        [n.latitude, n.longitude, (n.temperature - tmin) / (tmax - tmin or 1)]
+        for n in nodes
+    ]
+    HeatMap(
+        heat_data,
+        min_opacity=0.3,
+        radius=50,
+        blur=35,
+        max_zoom=zoom_start,
+        gradient={0.2: "blue", 0.4: "cyan", 0.6: "lime", 0.8: "yellow", 1.0: "red"},
+    ).add_to(m)
+    for n in nodes:
+        folium.Marker([n.latitude, n.longitude], popup=n.node_id).add_to(m)
+    return m
 
 def visualize_wind_vectors(nodes: List[IoTNode], scale: float = 0.005):
     """Draw wind direction arrows for each node."""
