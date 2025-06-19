@@ -15,11 +15,14 @@ import time
 import json
 import folium
 from folium.plugins import HeatMap, PolyLineTextPath
+
 from folium.raster_layers import ImageOverlay
 import numpy as np
+
 import math
 import requests
 import branca.colormap as cm
+
 
 
 def get_current_weather(latitude, longitude):
@@ -277,11 +280,13 @@ m.save("iot_nodes_map.html")
 temp_heatmap = visualize_temperature_heatmap(nodes)
 temp_heatmap.save("iot_temperature_heatmap.html")
 
+
 humidity_map = visualize_metric_folium(nodes, "humidity")
 humidity_map.save("iot_humidity_map.html")
 
 wind_vector_map = visualize_wind_vectors(nodes)
 wind_vector_map.save("iot_wind_vector_map.html")
+
 
 
 
