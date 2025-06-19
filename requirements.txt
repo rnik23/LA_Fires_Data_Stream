@@ -1,0 +1,4 @@
+jupyter
+folium
+kafka-python
+requests
