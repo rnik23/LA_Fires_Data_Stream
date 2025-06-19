@@ -8,6 +8,7 @@ import requests
 import folium
 from folium.plugins import HeatMap, PolyLineTextPath
 import branca.colormap as cm
+import statistics
 
 
 try:
@@ -189,10 +190,6 @@ def visualize_nodes_folium(nodes: List[IoTNode]):
     return m
 
 
-import statistics
-
-import statistics
-
 def visualize_temperature_heatmap(nodes: List[IoTNode], zoom_start: int = 14):
     """Render a heatmap that only shows red for >2σ deviations—normal noise stays in cooler colors."""
     # center map
@@ -359,6 +356,7 @@ if __name__ == "__main__":
         lon_spread=0.02,
         wind_direction="NE",
     )
+
 
     visualize_nodes_folium(nodes).save("iot_nodes_map.html")
     visualize_temperature_heatmap(nodes).save("iot_temperature_heatmap.html")
