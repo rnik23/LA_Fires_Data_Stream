@@ -1,0 +1,6 @@
+jupyter
+folium
+kafka-python
+numpy
+requests
+nbformat
