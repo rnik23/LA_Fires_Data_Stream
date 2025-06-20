@@ -1,7 +1,8 @@
-"""Utility script to run the LA Fires data stream demo."""
+#!/usr/bin/env python3
+"""Console entry point for the lafires package."""
 from __future__ import annotations
 
-from lafires import (
+from . import (
     initialize_nodes_center_grid,
     visualize_nodes_folium,
     visualize_temperature_heatmap,
@@ -10,8 +11,8 @@ from lafires import (
     stream_data,
 )
 
-
-if __name__ == "__main__":
+def main() -> None:
+    """Run the LA Fires data stream demo."""
     nodes = initialize_nodes_center_grid(
         grid_size=5,
         center_lat=34.0522,
@@ -25,6 +26,6 @@ if __name__ == "__main__":
     visualize_temperature_heatmap(nodes).save("iot_temperature_heatmap.html")
     visualize_metric_folium(nodes, "humidity").save("iot_humidity_map.html")
     visualize_wind_vectors(nodes).save("iot_wind_vector_map.html")
-    # Uncomment to stream data
-    #stream_data(nodes, topic="iot_fire_data", interval=5)
 
+    # If you want to stream live data, uncomment:
+    # stream_data(nodes, topic="iot_fire_data", interval=5)
