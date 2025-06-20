@@ -27,5 +27,5 @@ if __name__ == "__main__":
     visualize_metric_folium(nodes, "humidity").save("iot_humidity_map.html")
     visualize_wind_vectors(nodes).save("iot_wind_vector_map.html")
     # Uncomment to stream data
-    #stream_data(nodes, topic="iot_fire_data", interval=5)
+    stream_data(nodes, topic="iot_fire_data", interval=5)
 
