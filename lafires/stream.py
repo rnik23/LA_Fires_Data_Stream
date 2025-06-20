@@ -1,16 +1,16 @@
 """Kafka streaming utilities."""
 from __future__ import annotations
-
 import json
 import time
 from typing import List, Optional, Callable, Any
 from kafka.errors import NoBrokersAvailable
 
-
 try:
     from kafka import KafkaProducer
 except Exception:  # pragma: no cover - kafka is optional
     KafkaProducer = None
+
+print("KafkaProducer is", KafkaProducer)
 
 from .nodes import IoTNode
 
@@ -55,7 +55,6 @@ def stream_data(
     producer: Optional[Any] = None,
 ) -> None:
     """Send sensor data to a Kafka topic or a dummy producer.
-
     Parameters
     ----------
     nodes:
