@@ -14,7 +14,7 @@ from lafires import (
 
 if __name__ == "__main__":
     nodes = initialize_nodes_center_grid(
-        grid_size=5,
+        grid_size=1,
         center_lat=34.0522,
         center_long=-118.2437,
         lat_spread=0.02,

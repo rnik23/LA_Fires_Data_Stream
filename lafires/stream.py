@@ -4,6 +4,8 @@ from __future__ import annotations
 import json
 import time
 from typing import List, Optional, Callable, Any
+from kafka.errors import NoBrokersAvailable
+
 
 try:
     from kafka import KafkaProducer
@@ -35,10 +37,13 @@ class DummyProducer:
 def get_producer():
     if KafkaProducer is None:
         return DummyProducer(value_serializer=lambda v: json.dumps(v).encode("utf-8"))
-    return KafkaProducer(
-        bootstrap_servers=["localhost:9092"],
-        value_serializer=lambda v: json.dumps(v).encode("utf-8"),
-    )
+    try:
+        return KafkaProducer(
+            bootstrap_servers=["localhost:9092"],
+            value_serializer=lambda v: json.dumps(v).encode("utf-8"),
+        )
+    except NoBrokersAvailable:
+        return DummyProducer(value_serializer=lambda v: json.dumps(v).encode("utf-8"))
 
 
 def stream_data(
