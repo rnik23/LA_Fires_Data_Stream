@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 import time
-from typing import List
+from typing import List, Optional, Callable, Any
 
 try:
     from kafka import KafkaProducer
@@ -22,26 +22,59 @@ __all__ = [
 class DummyProducer:
     """Fallback producer used when Kafka is unavailable."""
 
+    def __init__(self, value_serializer: Optional[Callable[[Any], Any]] = None) -> None:
+        self.value_serializer = value_serializer or (lambda v: v)
+        self.sent_messages: list[tuple[str, Any]] = []
+
     def send(self, topic: str, value: dict):
-        print(f"[DummyProducer] {topic}: {value}")
+        encoded = self.value_serializer(value)
+        self.sent_messages.append((topic, encoded))
+        print(f"[DummyProducer] {topic}: {encoded}")
 
 
 def get_producer():
     if KafkaProducer is None:
-        return DummyProducer()
+        return DummyProducer(value_serializer=lambda v: json.dumps(v).encode("utf-8"))
     return KafkaProducer(
         bootstrap_servers=["localhost:9092"],
         value_serializer=lambda v: json.dumps(v).encode("utf-8"),
     )
 
 
-def stream_data(nodes: List[IoTNode], topic: str, interval: int = 1):
-    """Continuously send sensor data to Kafka."""
-    producer = get_producer()
+def stream_data(
+    nodes: List[IoTNode],
+    topic: str,
+    interval: int = 1,
+    *,
+    iterations: Optional[int] = None,
+    producer: Optional[Any] = None,
+) -> None:
+    """Send sensor data to a Kafka topic or a dummy producer.
+
+    Parameters
+    ----------
+    nodes:
+        List of IoT nodes to generate data from.
+    topic:
+        Topic name to send data to.
+    interval:
+        Delay between iterations in seconds.
+    iterations:
+        Number of iterations to run. ``None`` runs indefinitely.
+    producer:
+        Optional producer instance. If ``None`` a producer is created via
+        :func:`get_producer`.
+    """
+
+    producer = producer or get_producer()
+    count = 0
     while True:
         for node in nodes:
             data = node.generate_data()
             producer.send(topic, value=data)
             print(f"Sent: {data}")
+        count += 1
+        if iterations is not None and count >= iterations:
+            break
         time.sleep(interval)
 
