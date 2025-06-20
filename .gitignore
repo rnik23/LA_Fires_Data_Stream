@@ -1,4 +1,8 @@
 __pycache__/
 *.pyc
 iot_nodes_map.html
+iot_humidity_map.html
+iot_wind_vector_map.html
+iot_temperature_heatmap.html
 lafires.egg-info/
+
