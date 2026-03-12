@@ -109,3 +109,17 @@ This project is inspired by the need to understand and mitigate the devastating 
 ## **Connect with Me**
 - LinkedIn: [my LinkedIn](https://www.linkedin.com/in/nikhil-racha/)
 
+
+---
+
+## Fabric Geocoding Notebook: Places API (Legacy) Switch
+- The Fabric notebook geocoding call layer now uses **Google Places API (Legacy) - Find Place** (`findplacefromtext`) with `inputtype=textquery` and **Basic fields only** (`place_id,formatted_address,geometry,name`) to control field-based billing.
+- Optional Place Details fallback is supported behind a config flag: `enable_place_details_fallback` (default `False`).
+- Delta table schemas, pipeline orchestration, cache MERGE logic, and optimization steps are unchanged.
+
+References:
+- Find Place (Legacy): https://developers.google.com/maps/documentation/places/web-service/legacy/search-find-place
+- Legacy place data fields (Basic vs Contact vs Atmosphere): https://developers.google.com/maps/documentation/places/web-service/legacy/place-data-fields
+- Place Search (Legacy) overview: https://developers.google.cn/maps/documentation/places/web-service/legacy/search?hl=en
+- Usage & Billing: https://developers.google.com/maps/documentation/places/web-service/usage-and-billing
+- Pricing: https://developers.google.com/maps/billing-and-pricing/pricing
