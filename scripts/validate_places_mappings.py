@@ -33,6 +33,63 @@ DEFAULT_CONFIG: Dict[str, object] = {
     "zip_weight": 0.10,
     "granularity_weight": 0.10,
     "distance_weight": 0.10,
+    "region_weight": 0.10,
+}
+
+ALLOWED_LOCALITIES = {
+    "manhattan",
+    "new york",
+    "brooklyn",
+    "queens",
+    "bronx",
+    "staten island",
+    "yonkers",
+    "mount vernon",
+    "new rochelle",
+    "white plains",
+    "peekskill",
+    "rye",
+    "harrison",
+    "mamaroneck",
+    "larchmont",
+    "tarrytown",
+    "sleepy hollow",
+    "ossining",
+    "dobbs ferry",
+    "irvington",
+    "hastings on hudson",
+    "scarsdale",
+    "greenburgh",
+    "eastchester",
+    "pelham",
+    "bronxville",
+    "ardsley",
+    "elmsford",
+    "pleasantville",
+    "briarcliff manor",
+    "bedford",
+    "mount kisco",
+    "chappaqua",
+    "cortlandt",
+    "croton on hudson",
+    "pleasantville",
+    "port chester",
+}
+
+ALLOWED_COUNTIES = {
+    "new york county",
+    "kings county",
+    "queens county",
+    "bronx county",
+    "richmond county",
+    "westchester county",
+}
+
+ALLOWED_REGION_BBOX = {
+    "min_lat": 40.49,
+    "max_lat": 41.35,
+    "min_lng": -74.35,
+    "max_lng": -73.45,
 }
 
 STATE_ABBREVIATIONS = {
@@ -252,10 +309,55 @@ def distance_validation(row: pd.Series, config: Dict[str, object]) -> Dict[str, 
     }
 
 
+def region_validation(row: pd.Series, input_addr: AddressComponents, output_addr: AddressComponents) -> Dict[str, object]:
+    """Flag mappings that fall outside NYC boroughs or Westchester County."""
+    formatted_text = normalize_text(row.get("formatted_address") or row.get("google_formatted_address"))
+    locality_candidates = {
+        normalize_text(row.get("borough")),
+        normalize_text(row.get("county")),
+        formatted_text,
+        input_addr.city,
+        output_addr.city,
+    }
+    locality_hits = any(
+        locality and (
+            locality in ALLOWED_LOCALITIES
+            or locality in ALLOWED_COUNTIES
+            or any(allowed in locality for allowed in ALLOWED_LOCALITIES | ALLOWED_COUNTIES)
+        )
+        for locality in locality_candidates
+    )
+
+    returned_lat = row.get("lat")
+    returned_lng = row.get("lng")
+    coords_in_bbox = False
+    try:
+        lat = float(returned_lat)
+        lng = float(returned_lng)
+        coords_in_bbox = (
+            ALLOWED_REGION_BBOX["min_lat"] <= lat <= ALLOWED_REGION_BBOX["max_lat"]
+            and ALLOWED_REGION_BBOX["min_lng"] <= lng <= ALLOWED_REGION_BBOX["max_lng"]
+        )
+    except (TypeError, ValueError):
+        coords_in_bbox = False
+
+    state_is_ny = bool(
+        output_addr.state == "NY"
+        or re.search(r"\bny\b", formatted_text) is not None
+        or "new york" in formatted_text
+    )
+    is_out_of_region = bool((output_addr.state and not state_is_ny) or (not locality_hits and not coords_in_bbox))
+    return {
+        "is_out_of_region": is_out_of_region,
+        "region_match": not is_out_of_region,
+    }
+
+
 def score_mapping(
     component_results: Dict[str, object],
     granularity_results: Dict[str, bool],
     distance_results: Dict[str, object],
+    region_results: Dict[str, object],
     config: Dict[str, object],
 ) -> float:
     score = 0.0
@@ -281,6 +383,7 @@ def score_mapping(
     else:
         distance_component = 0.0
     score += float(config["distance_weight"]) * distance_component
+    score += float(config["region_weight"]) * (1.0 if region_results["region_match"] else 0.0)
 
     return round(max(0.0, min(1.0, score)), 4)
 
@@ -290,7 +393,8 @@ def validate_mapping_row(row: pd.Series, config: Dict[str, object]) -> pd.Series
     component_results = compare_components(input_addr, output_addr)
     granularity_results = detect_granularity_mismatch(input_addr, output_addr)
     distance_results = distance_validation(row, config)
-    confidence_score = score_mapping(component_results, granularity_results, distance_results, config)
+    region_results = region_validation(row, input_addr, output_addr)
+    confidence_score = score_mapping(component_results, granularity_results, distance_results, region_results, config)
     is_low_confidence = confidence_score < float(config["low_confidence_threshold"])
 
     result = {
@@ -309,6 +413,7 @@ def validate_mapping_row(row: pd.Series, config: Dict[str, object]) -> pd.Series
         **component_results,
         **granularity_results,
         **distance_results,
+        **region_results,
         "confidence_score": confidence_score,
         "is_low_confidence": is_low_confidence,
         "is_suspicious": bool(
@@ -316,6 +421,7 @@ def validate_mapping_row(row: pd.Series, config: Dict[str, object]) -> pd.Series
             or granularity_results["is_city_level_match"]
             or granularity_results["is_partial_match"]
             or distance_results["is_far_distance"]
+            or region_results["is_out_of_region"]
             or component_results["component_mismatch_count"] >= 2
         ),
     }
@@ -344,6 +450,7 @@ def summarize_validation(validated_df: pd.DataFrame, config: Optional[Dict[str, 
         {"metric": "pct_city_level_match", "value": round(validated_df["is_city_level_match"].mean() * 100, 2)},
         {"metric": "pct_partial_match", "value": round(validated_df["is_partial_match"].mean() * 100, 2)},
         {"metric": "pct_far_distance", "value": round(validated_df["is_far_distance"].fillna(False).mean() * 100, 2)},
+        {"metric": "pct_out_of_region", "value": round(validated_df["is_out_of_region"].fillna(False).mean() * 100, 2)},
     ]
     return pd.DataFrame(summary)
 

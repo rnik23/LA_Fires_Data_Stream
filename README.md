@@ -116,7 +116,7 @@ This project is inspired by the need to understand and mitigate the devastating 
 - The Fabric notebook geocoding call layer now uses **Google Places API (Legacy) - Find Place** (`findplacefromtext`) with `inputtype=textquery` and **Basic fields only** (`place_id,formatted_address,geometry,name`) to control field-based billing.
 - Optional Place Details fallback is supported behind a config flag: `enable_place_details_fallback` (default `False`).
 - Delta table schemas, pipeline orchestration, cache MERGE logic, and optimization steps are unchanged.
-- Use `scripts/validate_places_mappings.py` to score offline mapping quality with no Google API calls. It compares input vs. returned address components, detects city-level/partial matches, optionally checks distance against expected coordinates, and writes record-level flags plus a confidence score.
+- Use `scripts/validate_places_mappings.py` to score offline mapping quality with no Google API calls. It compares input vs. returned address components, detects city-level/partial matches, optionally checks distance against expected coordinates, enforces the expected NYC + Westchester geographic boundary, and writes record-level flags plus a confidence score.
 
 References:
 - Find Place (Legacy): https://developers.google.com/maps/documentation/places/web-service/legacy/search-find-place
