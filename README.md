@@ -117,6 +117,7 @@ This project is inspired by the need to understand and mitigate the devastating 
 - Optional Place Details fallback is supported behind a config flag: `enable_place_details_fallback` (default `False`).
 - Delta table schemas, pipeline orchestration, cache MERGE logic, and optimization steps are unchanged.
 - Use `scripts/validate_places_mappings.py` to score offline mapping quality with no Google API calls. It compares input vs. returned address components, detects city-level/partial matches, optionally checks distance against expected coordinates, enforces the expected NYC + Westchester geographic boundary, and writes record-level flags plus a confidence score.
+- Use `fabric_places_mapping_validation_notebook.py` for a Microsoft Fabric Lakehouse / PySpark implementation that reads Delta tables, writes validation and summary results back to Delta, and runs `OPTIMIZE` / `VACUUM` maintenance in a Fabric-friendly notebook flow.
 
 References:
 - Find Place (Legacy): https://developers.google.com/maps/documentation/places/web-service/legacy/search-find-place
