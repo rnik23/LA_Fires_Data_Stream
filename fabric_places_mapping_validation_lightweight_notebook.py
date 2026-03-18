@@ -241,14 +241,13 @@ def coordinates_in_region(lat, lng):
     )
 
 
-def score_match(street_match, house_number_match, city_match, state_match, zip_match, is_city_level_match, is_partial_match, distance_km, is_out_of_region):
+def score_match(street_match, house_number_match, city_match, state_match, zip_match, is_city_level_match, is_partial_match, is_out_of_region):
     score = 0.0
     score += 0.35 * (1.0 if street_match and house_number_match else 0.75 if street_match else 0.0)
     score += 0.20 * float(city_match)
     score += 0.15 * float(state_match)
     score += 0.10 * float(zip_match)
     score += 0.10 * (0.0 if is_city_level_match else 0.5 if is_partial_match else 1.0)
-    score += 0.10 * (0.5 if distance_km is None else 1.0 if distance_km <= CONFIG["distance_threshold_km"] else 0.5 if distance_km <= CONFIG["far_distance_threshold_km"] else 0.0)
     score += 0.10 * float(not is_out_of_region)
     return round(max(0.0, min(1.0, score)), 4)
 
@@ -320,7 +319,6 @@ def validate_mapping_udf(canonical_address, street, city, state, postal_code, bo
         zip_match=zip_match,
         is_city_level_match=is_city_level_match,
         is_partial_match=is_partial_match,
-        distance_km=distance_km,
         is_out_of_region=is_out_of_region,
     )
     is_low_confidence = bool(confidence_score < CONFIG["low_confidence_threshold"])
