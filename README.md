@@ -67,6 +67,10 @@ The goal is to build end-to-end data engineering and analytics skills while crea
 
 ---
 
+
+## Architecture Design Notes
+- [Microsoft Fabric ingest automation workflow](FABRIC_INGEST_AUTOMATION_WORKFLOW.md)
+
 ## **How to Use**
 1. Clone the repository:
    ```bash
